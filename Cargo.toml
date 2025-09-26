@@ -1,0 +1,6 @@
+[package]
+name = "Proyecto2Graficas"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
