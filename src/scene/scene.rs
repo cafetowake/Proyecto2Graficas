@@ -12,9 +12,89 @@ pub struct Scene {
     pub skybox: Option<Skybox>,
     pub ambient_color: Vector3,
     pub ambient_intensity: f32,
+    rotation_yaw: f32,
+    rotation_pitch: f32,
 }
 
 impl Scene {
+    pub fn set_rotation(&mut self, yaw: f32, pitch: f32) {
+        self.rotation_yaw = yaw;
+        self.rotation_pitch = pitch;
+    }
+
+    fn transform_ray(&self, ray: &Ray) -> Ray {
+        // Apply inverse rotation to ray
+        let origin = ray.origin;
+        let direction = ray.direction;
+
+        // Apply yaw rotation (around Y axis)
+        let sy = (-self.rotation_yaw).sin();
+        let cy = (-self.rotation_yaw).cos();
+        let mut dir_x = direction.x * cy - direction.z * sy;
+        let mut dir_z = direction.x * sy + direction.z * cy;
+        let mut orig_x = origin.x * cy - origin.z * sy;
+        let mut orig_z = origin.x * sy + origin.z * cy;
+
+        // Apply pitch rotation (around X axis)
+        let sp = (-self.rotation_pitch).sin();
+        let cp = (-self.rotation_pitch).cos();
+        let dir_y = dir_z * sp + direction.y * cp;
+        dir_z = dir_z * cp - direction.y * sp;
+        let orig_y = orig_z * sp + origin.y * cp;
+        orig_z = orig_z * cp - origin.y * sp;
+
+        Ray::new(
+            Vector3::new(orig_x, orig_y, orig_z),
+            Vector3::new(dir_x, dir_y, dir_z).normalize()
+        )
+    }
+
+    fn transform_normal(&self, normal: Vector3) -> Vector3 {
+        // Apply rotation to normal vector
+        let mut n = normal;
+        
+        // Pitch rotation
+        let sp = self.rotation_pitch.sin();
+        let cp = self.rotation_pitch.cos();
+        let ny = n.y * cp - n.z * sp;
+        let nz = n.y * sp + n.z * cp;
+        n.y = ny;
+        n.z = nz;
+
+        // Yaw rotation
+        let sy = self.rotation_yaw.sin();
+        let cy = self.rotation_yaw.cos();
+        let nx = n.x * cy - n.z * sy;
+        let nz2 = n.x * sy + n.z * cy;
+        n.x = nx;
+        n.z = nz2;
+
+        n.normalize()
+    }
+
+    fn transform_point_to_world(&self, point: Vector3) -> Vector3 {
+        let mut p = point;
+        
+        // Apply reverse transformations in opposite order
+        
+        // Pitch rotation
+        let sp = self.rotation_pitch.sin();
+        let cp = self.rotation_pitch.cos();
+        let py = p.y * cp - p.z * sp;
+        let pz = p.y * sp + p.z * cp;
+        p.y = py;
+        p.z = pz;
+
+        // Yaw rotation
+        let sy = self.rotation_yaw.sin();
+        let cy = self.rotation_yaw.cos();
+        let px = p.x * cy - p.z * sy;
+        let pz2 = p.x * sy + p.z * cy;
+        p.x = px;
+        p.z = pz2;
+
+        p
+    }
     pub fn new() -> Self {
         Self {
             cubes: Vec::new(),
@@ -22,6 +102,8 @@ impl Scene {
             skybox: None,
             ambient_color: Vector3::new(0.1, 0.1, 0.1),
             ambient_intensity: 0.1,
+            rotation_yaw: 0.0,
+            rotation_pitch: 0.0,
         }
     }
 
@@ -76,15 +158,20 @@ impl Scene {
     fn intersect_scene(&self, ray: &Ray) -> Option<SceneHit> {
         let mut closest_hit: Option<SceneHit> = None;
         let mut closest_distance = f32::MAX;
+        
+        // Transform ray to account for scene rotation
+        let transformed_ray = self.transform_ray(ray);
 
         for cube in &self.cubes {
-            if let Some((t, normal, uv)) = cube.intersect(ray) {
+            if let Some((t, normal, uv)) = cube.intersect(&transformed_ray) {
                 if t < closest_distance && t > 0.001 {
                     closest_distance = t;
-                    let point = ray.at(t);
+                    let point = transformed_ray.at(t);
+                    // Transform normal back to world space
+                    let world_normal = self.transform_normal(normal);
                     closest_hit = Some(SceneHit {
-                        point,
-                        normal,
+                        point: self.transform_point_to_world(point),
+                        normal: world_normal,
                         distance: t,
                         material: cube.material.clone(),
                         uv,

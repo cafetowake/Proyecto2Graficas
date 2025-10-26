@@ -33,8 +33,8 @@ fn run_interactive_diorama() {
 
     rl.set_target_fps(30);
 
-    let fb_width = 200u32;
-    let fb_height = 150u32;
+    let fb_width = 400u32;
+    let fb_height = 300u32;
 
     let mut camera = OrbitCamera::new(
         Vector3::new(0.0, 1.0, 0.0),
@@ -42,16 +42,15 @@ fn run_interactive_diorama() {
         std::f32::consts::PI / 3.0,
         fb_width as f32 / fb_height as f32,
     );
-    camera.rotate(std::f32::consts::PI / 4.0, 0.25);
 
-    let scene = create_diorama_scene();
+    let mut scene = create_diorama_scene();
     let mut framebuffer = Framebuffer::new(fb_width as usize, fb_height as usize);
 
     let mut last_render = Instant::now();
     let mut needs_render = true; 
     let mut rendering_in_progress = false;
     let mut render_row: usize = 0;
-    let rows_per_frame: usize = 6;
+    let rows_per_frame: usize = 12;
 
     let mut scene_yaw: f32 = 0.0;
     let mut scene_pitch: f32 = 0.0;
@@ -69,9 +68,11 @@ fn run_interactive_diorama() {
             camera.set_radius(10.0);
             scene_yaw = 0.0;
             scene_pitch = 0.0;
-            camera.rotate(std::f32::consts::PI / 4.0, 0.25);
             changed = true;
         }
+
+        scene.set_rotation(scene_yaw, scene_pitch);
+
         if changed { needs_render = true; }
 
         if needs_render {
@@ -115,9 +116,9 @@ fn run_interactive_diorama() {
 
         draw_framebuffer_scaled(&framebuffer, &mut d, window_width, window_height);
 
-        d.draw_text("WASD: rotar  Q/E: zoom  R: reset", 10, window_height - 50, 20, RColor::WHITE);
+        d.draw_text("WASD: rotar escena  Q/E: zoom  R: reset", 10, window_height - 50, 20, RColor::WHITE);
 
-        d.draw_text("Modo: Cámara en órbita (la escena es fija). Zoom = cámara.", 10, window_height - 30, 18, RColor::LIGHTGRAY);
+        d.draw_text("Modo: Cámara fija (el diorama rota). Zoom = cámara.", 10, window_height - 30, 18, RColor::LIGHTGRAY);
 
         if rendering_in_progress {
             let percent = (render_row as f32 / framebuffer.height as f32) * 100.0;
@@ -129,56 +130,21 @@ fn run_interactive_diorama() {
     }
 }
 
-fn render_scene_partial(scene: &Scene, camera: &OrbitCamera, framebuffer: &mut Framebuffer, start_row: usize, num_rows: usize, scene_yaw: f32, scene_pitch: f32) {
+fn render_scene_partial(scene: &Scene, camera: &OrbitCamera, framebuffer: &mut Framebuffer, start_row: usize, num_rows: usize, _scene_yaw: f32, _scene_pitch: f32) {
     let width = framebuffer.width;
     let height = framebuffer.height;
 
     let end_row = (start_row + num_rows).min(height);
     for y in start_row..end_row {
         for x in 0..width {
-            let mut ray = camera.generate_ray(x as u32, y as u32, width as u32, height as u32);
-
-            let inv_rot = rotate_vector_inverse(scene_yaw, scene_pitch, ray.origin, camera.get_position());
-            ray.origin = inv_rot.0;
-            ray.direction = rotate_direction_inverse(scene_yaw, scene_pitch, ray.direction);
-
+            let ray = camera.generate_ray(x as u32, y as u32, width as u32, height as u32);
             let color = scene.trace_ray(&ray, 3);
             framebuffer.set_pixel(x, y, color);
         }
     }
 }
 
-fn rotate_vector_inverse(yaw: f32, pitch: f32, v: crate::math::vector3::Vector3, center: crate::math::vector3::Vector3) -> (crate::math::vector3::Vector3, ) {
-    use crate::math::vector3::Vector3;
-    let mut p = v - center;
-    let sy = (-yaw).sin();
-    let cy = (-yaw).cos();
-    let x = p.x * cy - p.z * sy;
-    let z = p.x * sy + p.z * cy;
-    p.x = x; p.z = z;
-    let sp = (-pitch).sin();
-    let cp = (-pitch).cos();
-    let y = p.y * cp - p.z * sp;
-    let z2 = p.y * sp + p.z * cp;
-    p.y = y; p.z = z2;
-    (p + center,)
-}
 
-fn rotate_direction_inverse(yaw: f32, pitch: f32, d: crate::math::vector3::Vector3) -> crate::math::vector3::Vector3 {
-    use crate::math::vector3::Vector3;
-    let mut v = d;
-    let sy = (-yaw).sin();
-    let cy = (-yaw).cos();
-    let x = v.x * cy - v.z * sy;
-    let z = v.x * sy + v.z * cy;
-    v.x = x; v.z = z;
-    let sp = (-pitch).sin();
-    let cp = (-pitch).cos();
-    let y = v.y * cp - v.z * sp;
-    let z2 = v.y * sp + v.z * cp;
-    v.y = y; v.z = z2;
-    v.normalize()
-}
 
 fn draw_framebuffer_scaled(fb: &Framebuffer, d: &mut RaylibDrawHandle, win_w: i32, win_h: i32) {
     let scale_x = win_w / fb.width as i32;
