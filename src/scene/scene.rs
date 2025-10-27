@@ -23,11 +23,9 @@ impl Scene {
     }
 
     fn transform_ray(&self, ray: &Ray) -> Ray {
-        // Apply inverse rotation to ray
         let origin = ray.origin;
         let direction = ray.direction;
 
-        // Apply yaw rotation (around Y axis)
         let sy = (-self.rotation_yaw).sin();
         let cy = (-self.rotation_yaw).cos();
         let mut dir_x = direction.x * cy - direction.z * sy;
@@ -35,7 +33,6 @@ impl Scene {
         let mut orig_x = origin.x * cy - origin.z * sy;
         let mut orig_z = origin.x * sy + origin.z * cy;
 
-        // Apply pitch rotation (around X axis)
         let sp = (-self.rotation_pitch).sin();
         let cp = (-self.rotation_pitch).cos();
         let dir_y = dir_z * sp + direction.y * cp;
@@ -50,10 +47,8 @@ impl Scene {
     }
 
     fn transform_normal(&self, normal: Vector3) -> Vector3 {
-        // Apply rotation to normal vector
         let mut n = normal;
         
-        // Pitch rotation
         let sp = self.rotation_pitch.sin();
         let cp = self.rotation_pitch.cos();
         let ny = n.y * cp - n.z * sp;
@@ -61,7 +56,6 @@ impl Scene {
         n.y = ny;
         n.z = nz;
 
-        // Yaw rotation
         let sy = self.rotation_yaw.sin();
         let cy = self.rotation_yaw.cos();
         let nx = n.x * cy - n.z * sy;
@@ -75,9 +69,6 @@ impl Scene {
     fn transform_point_to_world(&self, point: Vector3) -> Vector3 {
         let mut p = point;
         
-        // Apply reverse transformations in opposite order
-        
-        // Pitch rotation
         let sp = self.rotation_pitch.sin();
         let cp = self.rotation_pitch.cos();
         let py = p.y * cp - p.z * sp;
@@ -85,7 +76,6 @@ impl Scene {
         p.y = py;
         p.z = pz;
 
-        // Yaw rotation
         let sy = self.rotation_yaw.sin();
         let cy = self.rotation_yaw.cos();
         let px = p.x * cy - p.z * sy;
@@ -159,7 +149,6 @@ impl Scene {
         let mut closest_hit: Option<SceneHit> = None;
         let mut closest_distance = f32::MAX;
         
-        // Transform ray to account for scene rotation
         let transformed_ray = self.transform_ray(ray);
 
         for cube in &self.cubes {
@@ -167,7 +156,6 @@ impl Scene {
                 if t < closest_distance && t > 0.001 {
                     closest_distance = t;
                     let point = transformed_ray.at(t);
-                    // Transform normal back to world space
                     let world_normal = self.transform_normal(normal);
                     closest_hit = Some(SceneHit {
                         point: self.transform_point_to_world(point),

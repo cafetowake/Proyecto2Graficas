@@ -23,7 +23,6 @@ impl OrbitCamera {
     }
 
     pub fn rotate(&mut self, _delta_yaw: f32, _delta_pitch: f32) {
-        // Camera no longer rotates - ignoring rotation commands
     }
 
     pub fn zoom(&mut self, delta_radius: f32) {
@@ -31,7 +30,6 @@ impl OrbitCamera {
     }
 
     pub fn get_position(&self) -> Vector3 {
-        // Fixed position along z-axis, only moving closer/further based on radius
         Vector3::new(0.0, 1.0, self.radius)
     }
 
